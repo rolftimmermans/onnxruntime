@@ -62,50 +62,6 @@ where
         let shape_len = self.shape().len();
 
         match T::tensor_element_data_type() {
-            TensorElementDataType::Float
-            | TensorElementDataType::Uint8
-            | TensorElementDataType::Int8
-            | TensorElementDataType::Uint16
-            | TensorElementDataType::Int16
-            | TensorElementDataType::Int32
-            | TensorElementDataType::Int64
-            | TensorElementDataType::Double
-            | TensorElementDataType::Uint32
-            | TensorElementDataType::Uint64 => {
-                let buffer_size = self.len() * std::mem::size_of::<T>();
-
-                // primitive data is already suitably laid out in memory; provide it to
-                // onnxruntime as is
-                let tensor_values_ptr: *mut std::ffi::c_void =
-                    self.as_mut_ptr().cast::<std::ffi::c_void>();
-
-                assert_not_null_pointer(tensor_values_ptr, "TensorValues")?;
-
-                unsafe {
-                    call_ort(|ort| {
-                        ort.CreateTensorWithDataAsOrtValue.unwrap()(
-                            memory_info.ptr,
-                            tensor_values_ptr,
-                            buffer_size,
-                            shape_ptr,
-                            shape_len,
-                            T::tensor_element_data_type().into(),
-                            tensor_ptr_ptr,
-                        )
-                    })
-                }
-                .map_err(OrtError::CreateTensorWithData)?;
-                assert_not_null_pointer(tensor_ptr, "Tensor")?;
-
-                let mut is_tensor = 0;
-                let status = unsafe {
-                    ENV.get().unwrap().lock().unwrap().api().IsTensor.unwrap()(
-                        tensor_ptr,
-                        &mut is_tensor,
-                    )
-                };
-                status_to_result(status).map_err(OrtError::IsTensor)?;
-            }
             TensorElementDataType::String => {
                 // create tensor without data -- data is filled in later
                 unsafe {
@@ -148,6 +104,42 @@ where
                     })
                 }
                 .map_err(OrtError::FillStringTensor)?;
+            }
+
+            _ => {
+                let buffer_size = self.len() * std::mem::size_of::<T>();
+
+                // primitive data is already suitably laid out in memory; provide it to
+                // onnxruntime as is
+                let tensor_values_ptr: *mut std::ffi::c_void =
+                    self.as_mut_ptr().cast::<std::ffi::c_void>();
+
+                assert_not_null_pointer(tensor_values_ptr, "TensorValues")?;
+
+                unsafe {
+                    call_ort(|ort| {
+                        ort.CreateTensorWithDataAsOrtValue.unwrap()(
+                            memory_info.ptr,
+                            tensor_values_ptr,
+                            buffer_size,
+                            shape_ptr,
+                            shape_len,
+                            T::tensor_element_data_type().into(),
+                            tensor_ptr_ptr,
+                        )
+                    })
+                }
+                .map_err(OrtError::CreateTensorWithData)?;
+                assert_not_null_pointer(tensor_ptr, "Tensor")?;
+
+                let mut is_tensor = 0;
+                let status = unsafe {
+                    ENV.get().unwrap().lock().unwrap().api().IsTensor.unwrap()(
+                        tensor_ptr,
+                        &mut is_tensor,
+                    )
+                };
+                status_to_result(status).map_err(OrtError::IsTensor)?;
             }
         }
 

@@ -11,6 +11,9 @@ use onnxruntime_sys as sys;
 use std::{convert::TryFrom, fmt::Debug};
 use tracing::debug;
 
+#[cfg(feature = "f16")]
+use half::f16;
+
 /// Tensor containing data owned by the ONNX Runtime C library, used to return values from inference.
 ///
 /// This tensor type is returned by the [`Session::run()`](../session/struct.Session.html#method.run) method.
@@ -122,6 +125,9 @@ where
 
 /// The onnxruntime Run output type.
 pub enum OrtOutput<'a> {
+    /// Tensor of f16s
+    #[cfg(feature = "f16")]
+    Float16(WithOutputTensor<'a, f16>),
     /// Tensor of f32s
     Float(WithOutputTensor<'a, f32>),
     /// Tensor of f64s
@@ -147,6 +153,16 @@ pub enum OrtOutput<'a> {
 }
 
 impl<'a> OrtOutput<'a> {
+    /// Return `WithOutputTensor<'a, f16>` which derefs into an `ArrayView`.
+    #[cfg(feature = "f16")]
+    pub fn float16_array(&self) -> Option<&WithOutputTensor<'a, f16>> {
+        if let Self::Float16(item) = self {
+            Some(item)
+        } else {
+            None
+        }
+    }
+
     /// Return `WithOutputTensor<'a, f32>` which derefs into an `ArrayView`.
     pub fn float_array(&self) -> Option<&WithOutputTensor<'a, f32>> {
         if let Self::Float(item) = self {
@@ -321,7 +337,11 @@ impl<'a> TryFrom<OrtOutputTensor> for OrtOutput<'a> {
                     unimplemented!()
                 }
                 sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16 => {
-                    unimplemented!()
+                    #[cfg(not(feature = "f16"))]
+                    unimplemented!();
+
+                    #[cfg(feature = "f16")]
+                    WithOutputTensor::try_from(value).map(OrtOutput::Float16)
                 }
                 sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE => {
                     WithOutputTensor::try_from(value).map(OrtOutput::Double)

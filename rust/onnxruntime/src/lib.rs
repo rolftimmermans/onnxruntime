@@ -153,6 +153,9 @@ to download.
 
 use onnxruntime_sys as sys;
 
+#[cfg(feature = "f16")]
+use half::f16;
+
 // Make functions `extern "stdcall"` for Windows 32bit.
 // This behaviors like `extern "system"`.
 #[cfg(all(target_os = "windows", target_arch = "x86"))]
@@ -374,8 +377,9 @@ pub enum TensorElementDataType {
     String = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_STRING as OnnxEnumInt,
     // /// Boolean, equivalent to Rust's `bool`
     // Bool = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL as OnnxEnumInt,
-    // /// 16-bit floating point, equivalent to Rust's `f16`
-    // Float16 = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16 as OnnxEnumInt,
+    /// 16-bit floating point, equivalent to Rust's `f16`
+    #[cfg(feature = "f16")]
+    Float16 = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16 as OnnxEnumInt,
     /// 64-bit floating point, equivalent to Rust's `f64`
     Double = sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE as OnnxEnumInt,
     /// Unsigned 32-bit int, equivalent to Rust's `u32`
@@ -392,9 +396,8 @@ pub enum TensorElementDataType {
 
 impl From<TensorElementDataType> for sys::ONNXTensorElementDataType {
     fn from(val: TensorElementDataType) -> Self {
-        use TensorElementDataType::{
-            Double, Float, Int16, Int32, Int64, Int8, String, Uint16, Uint32, Uint64, Uint8,
-        };
+        use TensorElementDataType::*;
+
         match val {
             Float => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT,
             Uint8 => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT8,
@@ -407,9 +410,8 @@ impl From<TensorElementDataType> for sys::ONNXTensorElementDataType {
             // Bool => {
             //     sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_BOOL
             // }
-            // Float16 => {
-            //     sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16
-            // }
+            #[cfg(feature = "f16")]
+            Float16 => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_FLOAT16,
             Double => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_DOUBLE,
             Uint32 => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT32,
             Uint64 => sys::ONNXTensorElementDataType::ONNX_TENSOR_ELEMENT_DATA_TYPE_UINT64,
@@ -458,7 +460,8 @@ impl_type_trait!(i16, Int16);
 impl_type_trait!(i32, Int32);
 impl_type_trait!(i64, Int64);
 // impl_type_trait!(bool, Bool);
-// impl_type_trait!(f16, Float16);
+#[cfg(feature = "f16")]
+impl_type_trait!(f16, Float16);
 impl_type_trait!(f64, Double);
 impl_type_trait!(u32, Uint32);
 impl_type_trait!(u64, Uint64);
